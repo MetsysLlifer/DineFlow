@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
+use App\Services\ActivityLogger;
 
 class OrderController extends Controller
 {
@@ -48,6 +49,12 @@ class OrderController extends Controller
 
         // Clear session cart
         session()->forget('cart');
+
+        ActivityLogger::log('order.submit', Order::class, $order->id, [
+            'order_number' => $orderNumber,
+            'total' => $total,
+            'items_count' => count($items),
+        ]);
 
         return response()->json([
             'success' => true,

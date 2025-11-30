@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Events\ProductChanged;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ActivityLogger;
 
 class ProductController extends Controller
 {
@@ -13,15 +15,20 @@ class ProductController extends Controller
      */
     public function index()
     {
+        ActivityLogger::log('products.view');
         return view('products.index');
     }
 
     /**
      * Return all products as JSON.
      */
-    public function getProducts()
+    public function getProducts(Request $request)
     {
-        $products = Product::all();
+        $category = $request->query('category');
+        $products = Product::query()
+            ->when($category, fn($q) => $q->where('category', $category))
+            ->get();
+        ActivityLogger::log('products.list');
         return response()->json(['products' => $products], 200);
     }
 
@@ -53,6 +60,10 @@ class ProductController extends Controller
 
         session()->put('cart', $cart);
 
+        ActivityLogger::log('cart.add', Product::class, $productId, [
+            'quantity' => $cart[$productId]['quantity']
+        ]);
+
         return response()->json(['success' => true, 'cart' => $cart], 200);
     }
 
@@ -70,6 +81,7 @@ class ProductController extends Controller
         if (isset($cart[$productId])) {
             unset($cart[$productId]);
             session()->put('cart', $cart);
+            ActivityLogger::log('cart.remove', Product::class, $productId);
         }
 
         return response()->json(['success' => true, 'cart' => $cart], 200);
@@ -90,19 +102,61 @@ class ProductController extends Controller
     public function adminIndex(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
+        $category = $request->query('category');
 
         $products = Product::query()
             ->when($q !== '', function ($query) use ($q) {
                 $query->where('name', 'like', "%$q%");
             })
+            ->when($category, fn($query) => $query->where('category', $category))
             ->orderBy('name')
-            ->paginate(10)
+            ->paginate(5)
             ->withQueryString();
+
+        $categories = Product::select('category')->distinct()->orderBy('category')->pluck('category');
 
         return view('admin.index', [
             'products' => $products,
             'q' => $q,
+            'category' => $category,
+            'categories' => $categories,
         ]);
+    }
+
+    /**
+     * Show create form.
+     */
+    public function create()
+    {
+        $categories = Product::select('category')->distinct()->orderBy('category')->pluck('category');
+        return view('admin.menu.create', compact('categories'));
+    }
+
+    /**
+     * Store new product.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'category' => ['required', 'string', 'max:100'],
+            'image' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('products', 'public');
+            $validated['image'] = $path;
+        }
+
+        $product = Product::create($validated);
+        event(new ProductChanged('created', $product));
+        ActivityLogger::log('product.create', Product::class, $product->id, [
+            'name' => $product->name,
+            'price' => $product->price,
+        ]);
+
+        return redirect()->route('admin.menu-items.index')->with('status', 'Product created');
     }
 
     /**
@@ -110,7 +164,8 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
-        return view('admin.menu.edit', compact('product'));
+        $categories = Product::select('category')->distinct()->orderBy('category')->pluck('category');
+        return view('admin.menu.edit', compact('product', 'categories'));
     }
 
     /**
@@ -121,6 +176,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
+            'category' => ['required', 'string', 'max:100'],
             'image' => ['nullable', 'image', 'max:2048'],
         ]);
 
@@ -131,9 +187,32 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
+        event(new ProductChanged('updated', $product));
+
+        ActivityLogger::log('product.update', Product::class, $product->id, [
+            'name' => $product->name,
+            'price' => $product->price,
+        ]);
 
         return redirect()
             ->route('admin.menu-items.edit', $product)
             ->with('status', 'Product updated successfully');
+    }
+
+    /**
+     * Delete a product.
+     */
+    public function destroy(Product $product)
+    {
+        $id = $product->id;
+        $snapshot = ['name' => $product->name, 'price' => $product->price, 'image' => $product->image];
+        // Delete image if exists
+        if ($product->image && Storage::disk('public')->exists($product->image)) {
+            Storage::disk('public')->delete($product->image);
+        }
+        $product->delete();
+        event(new ProductChanged('deleted', $product));
+        ActivityLogger::log('product.delete', Product::class, $id, $snapshot);
+        return redirect()->route('admin.menu-items.index')->with('status', 'Product deleted');
     }
 }

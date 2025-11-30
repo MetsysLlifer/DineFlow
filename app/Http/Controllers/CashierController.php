@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use Illuminate\Http\Request;
+use App\Services\ActivityLogger;
 
 class CashierController extends Controller
 {
@@ -12,6 +13,7 @@ class CashierController extends Controller
      */
     public function dashboard()
     {
+        ActivityLogger::log('cashier.dashboard.view');
         return view('cashier.dashboard');
     }
 
@@ -24,7 +26,7 @@ class CashierController extends Controller
             ->orderBy('created_at', 'desc')
             ->with('items')
             ->get();
-
+        ActivityLogger::log('cashier.orders.list', Order::class, null, ['count' => $orders->count()]);
         return response()->json(['orders' => $orders], 200);
     }
 
@@ -39,8 +41,10 @@ class CashierController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
-        $order->update(['status' => 'approved']);
-
+            $order->status = 'approved';
+            $order->save();
+            event(new OrderStatusChanged($order));
+        ActivityLogger::log('order.approve', Order::class, $order->id, ['status' => 'approved']);
         return response()->json(['success' => true, 'order' => $order], 200);
     }
 
@@ -57,11 +61,11 @@ class CashierController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
-        $order->update([
-            'status' => 'rejected',
-            'notes' => $request->input('reason')
-        ]);
-
+            $order->status = 'rejected';
+            $order->notes = $request->input('reason');
+            $order->save();
+            event(new OrderStatusChanged($order));
+        ActivityLogger::log('order.reject', Order::class, $order->id, ['reason' => $request->input('reason')]);
         return response()->json(['success' => true, 'order' => $order], 200);
     }
 
@@ -76,8 +80,10 @@ class CashierController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
-        $order->update(['status' => 'ready']);
-
+            $order->status = 'ready';
+            $order->save();
+            event(new OrderStatusChanged($order));
+        ActivityLogger::log('order.ready', Order::class, $order->id);
         return response()->json(['success' => true, 'order' => $order], 200);
     }
 }

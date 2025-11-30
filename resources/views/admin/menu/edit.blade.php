@@ -7,12 +7,13 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100">
-    <header class="header">
-        <div class="flex justify-between items-center">
-            <div class="logo">Admin • Edit Menu Item</div>
-            <a href="{{ url('/products') }}" class="text-sm hover:underline">Back to Products</a>
+    <x-header />
+    <div class="bg-gray-50 border-b border-gray-200 px-8 py-3">
+        <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-600">Admin • Edit Menu Item</span>
+            <a href="{{ route('admin.menu-items.index') }}" class="text-indigo-600 hover:underline">Back to Menu Items</a>
         </div>
-    </header>
+    </div>
 
     <main class="p-6 max-w-3xl mx-auto">
         @if (session('status'))
@@ -40,6 +41,23 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Price (₱)</label>
                     <input type="number" step="0.01" name="price" value="{{ old('price', $product->price) }}" class="search-box" required>
                     @error('price')
+                        <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <input type="text" name="category" value="{{ old('category', $product->category ?? 'Main Course') }}" list="categories" class="search-box" required>
+                    <datalist id="categories">
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat }}">
+                        @endforeach
+                        <option value="Appetizers">
+                        <option value="Main Course">
+                        <option value="Desserts">
+                        <option value="Beverages">
+                    </datalist>
+                    @error('category')
                         <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                     @enderror
                 </div>

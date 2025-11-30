@@ -5,31 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     {{-- Page title (can be overridden by child views) --}}
-    <title>@yield('title', 'POS Menu System')</title>
+    <title>@yield('title', 'DineFlow')</title>
 
-    {{-- External styles (Tailwind used for utility classes) --}}
-    <link
-        href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-        rel="stylesheet"
-    >
-    <link
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-        rel="stylesheet"
-    >
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
+    {{-- Centralized styles via Vite (Tailwind v4 + app styles) --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    {{-- Compiled application CSS (public/css/app.css) --}}
-    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+    {{-- Optional icon set (keep if used) --}}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100">
 
     {{-- Header --}}
-    <header class="header" role="banner">
-        <div class="logo"></div>
-    </header>
+    <x-header />
 
     {{-- Main: products (left) and cart (right) --}}
     <main class="flex h-screen bg-gray-50" role="main" aria-label="Main content">
@@ -39,6 +26,7 @@
                 <h1 class="text-3xl font-bold text-gray-800">Menu</h1>
             </div>
 
+            <div id="category-buttons" class="mb-4 flex flex-wrap gap-2"></div>
             <input
                 id="search-box"
                 class="search-box"

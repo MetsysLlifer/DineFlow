@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'WebDev Grocery Shopping Cart')
+@section('title', 'DineFlow Menu')
 
 @section('content')
 

@@ -1,10 +1,13 @@
 import './bootstrap';
 
-/* ======= State ======= */
+// State
 let cart = {};
 let productsCache = [];
+let activeCategory = 'All';
 
-/* ======= Utilities ======= */
+const COMMON_CATEGORIES = ['Mains', 'Sides', 'Drinks', 'Desserts', 'Specials', 'Breakfast'];
+
+// Utils
 function escapeHtml(str) {
     return String(str || '')
         .replace(/&/g, '&amp;')
@@ -14,54 +17,37 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-/* ======= Fetch / Initialization ======= */
-async function fetchProducts() {
-    try {
-        const res = await fetch(window.App.routes.productsGet);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        productsCache = data.products || [];
-        displayProducts(productsCache);
-
-        await loadCart();
-        attachProductSearch();
-        attachCartSearch();
-    } catch (err) {
-        console.error('Error fetching products:', err);
-        const productList = document.getElementById('product-list');
-        if (productList) {
-            productList.innerHTML = "<p class='text-red-600'>Error loading products. Please try again.</p>";
-        }
-    }
-}
-
-/* ======= Products rendering ======= */
+// Products
 function displayProducts(products) {
-    const productList = document.getElementById('product-list');
-    if (!productList) return;
-    productList.innerHTML = '';
+    const productsContainer = document.getElementById('product-list');
+    if (!productsContainer) return;
+    productsContainer.innerHTML = '';
 
     products.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
 
+        const imageUrl = product.image && product.image.startsWith('http')
+            ? product.image
+            : (product.image ? `/storage/${product.image}` : 'https://via.placeholder.com/200?text=No+Image');
+
         card.innerHTML = `
             <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="product-img">
             <div class="product-name">${escapeHtml(product.name)}</div>
+            <div class="text-xs text-gray-500">${escapeHtml(product.category || '')}</div>
             <div class="product-price">₱ ${parseFloat(product.price).toFixed(2)}</div>
             <button class="add-btn" data-id="${product.id}" title="Add to cart">+</button>
         `;
 
-        productList.appendChild(card);
+        productsContainer.appendChild(card);
     });
 
-    // Wire add-to-cart buttons
     document.querySelectorAll('.add-btn').forEach(btn => {
         btn.addEventListener('click', () => addToCart(btn.dataset.id));
     });
 }
 
-/* ======= Cart (server-backed via session) ======= */
+// Cart
 async function loadCart() {
     try {
         const res = await fetch(window.App.routes.cartGet);
@@ -93,41 +79,10 @@ async function addToCart(productId) {
     }
 }
 
-async function removeFromCart(productId) {
-    try {
-        const res = await fetch(window.App.routes.cartRemove, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': window.App.csrfToken
-            },
-            body: JSON.stringify({ product_id: productId })
-        });
-        const data = await res.json();
-        if (data.success) {
-            cart = data.cart || {};
-            updateCartUI();
-        }
-    } catch (err) {
-        console.error('Error removing from cart:', err);
-    }
-}
-
-/* NOTE: updateQuantity updates local UI quantities only.
-   If you want server-side persisted quantity changes, extend API and call the server here. */
-function updateQuantity(productId, action) {
-    if (!cart[productId]) return;
-    if (action === 'plus') cart[productId].quantity++;
-    if (action === 'minus' && cart[productId].quantity > 1) cart[productId].quantity--;
-    updateCartUI();
-}
-
-/* ======= Cart rendering + search filter support ======= */
 function updateCartUI(filter = '') {
     const cartItemsEl = document.getElementById('cart-items');
     const subtotalEl = document.getElementById('subtotal');
     const totalEl = document.getElementById('total');
-
     if (!cartItemsEl || !subtotalEl || !totalEl) return;
 
     cartItemsEl.innerHTML = '';
@@ -161,7 +116,6 @@ function updateCartUI(filter = '') {
     subtotalEl.textContent = `₱ ${subtotal.toFixed(2)}`;
     totalEl.textContent = `₱ ${subtotal.toFixed(2)}`;
 
-    // Wire remove and qty buttons
     document.querySelectorAll('.cart-item-delete').forEach(btn =>
         btn.addEventListener('click', () => removeFromCart(btn.dataset.id))
     );
@@ -170,14 +124,60 @@ function updateCartUI(filter = '') {
     );
 }
 
-/* ======= Search helpers ======= */
+async function removeFromCart(id) {
+    try {
+        const res = await fetch(window.App.routes.cartRemove, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': window.App.csrfToken
+            },
+            body: JSON.stringify({ product_id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+            cart = data.cart || {};
+            updateCartUI();
+        }
+    } catch (err) {
+        console.error('Error removing from cart:', err);
+    }
+}
+
+async function updateQuantity(id, action) {
+    try {
+        const res = await fetch(window.App.routes.cartUpdate, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': window.App.csrfToken
+            },
+            body: JSON.stringify({ product_id: id, action })
+        });
+        const data = await res.json();
+        if (data.success) {
+            cart = data.cart || {};
+            updateCartUI();
+        }
+    } catch (err) {
+        console.error('Error updating quantity:', err);
+    }
+}
+
+// Search helpers
 function attachProductSearch() {
     const search = document.getElementById('search-box');
     if (!search) return;
     search.addEventListener('input', e => {
         const q = e.target.value.trim().toLowerCase();
-        const filtered = productsCache.filter(p => p.name.toLowerCase().includes(q));
-        displayProducts(filtered);
+        let list = productsCache;
+        if (activeCategory && activeCategory !== 'All') {
+            list = list.filter(p => (p.category || '').toLowerCase() === activeCategory.toLowerCase());
+        }
+        if (q) {
+            list = list.filter(p => p.name.toLowerCase().includes(q));
+        }
+        displayProducts(list);
     });
 }
 
@@ -190,5 +190,85 @@ function attachCartSearch() {
     });
 }
 
-/* ======= Initialize on DOM ready ======= */
-document.addEventListener('DOMContentLoaded', fetchProducts);
+// Fetch products
+async function fetchProducts(category = null) {
+    try {
+        const url = category && category !== 'All' ? `/api/products?category=${encodeURIComponent(category)}` : '/api/products';
+        const res = await fetch(url);
+        const data = await res.json();
+        productsCache = Array.isArray(data) ? data : (data.products || []);
+        displayProducts(productsCache);
+
+        await loadCart();
+        attachProductSearch();
+        attachCartSearch();
+
+        renderCategoryButtons();
+    } catch (err) {
+        console.error('Error fetching products:', err);
+        const productList = document.getElementById('product-list');
+        if (productList) {
+            productList.innerHTML = "<p class='text-red-600'>Error loading products. Please try again.</p>";
+        }
+    }
+}
+
+function renderCategoryButtons() {
+    const categoryButtons = document.getElementById('category-buttons');
+    if (!categoryButtons) return;
+    const dynamic = Array.from(new Set(productsCache.map(p => p.category).filter(Boolean)));
+    const unique = Array.from(new Set([ ...COMMON_CATEGORIES, ...dynamic ])).sort();
+
+    categoryButtons.innerHTML = '';
+    const allBtn = document.createElement('button');
+    allBtn.className = 'px-3 py-1 rounded border' + (activeCategory === 'All' ? ' bg-gray-800 text-white' : '');
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', () => { activeCategory = 'All'; attachProductSearch(); displayProducts(productsCache); highlightActive(); });
+    categoryButtons.appendChild(allBtn);
+
+    unique.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'px-3 py-1 rounded border' + (activeCategory === cat ? ' bg-gray-800 text-white' : '');
+        btn.textContent = cat;
+        btn.addEventListener('click', () => {
+            activeCategory = cat;
+            const filtered = productsCache.filter(p => (p.category || '').toLowerCase() === cat.toLowerCase());
+            displayProducts(filtered);
+            highlightActive();
+        });
+        categoryButtons.appendChild(btn);
+    });
+}
+
+function highlightActive() {
+    const categoryButtons = document.getElementById('category-buttons');
+    if (!categoryButtons) return;
+    [...categoryButtons.querySelectorAll('button')].forEach(btn => {
+        const isActive = btn.textContent === activeCategory || (activeCategory === 'All' && btn.textContent === 'All');
+        btn.className = 'px-3 py-1 rounded border' + (isActive ? ' bg-gray-800 text-white' : '');
+    });
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    fetchProducts(activeCategory);
+});
+
+// Subscribe to real-time events if Echo is available
+if (window.Echo) {
+    window.Echo.channel('products')
+        .listen('.product.changed', (e) => {
+            // Simple strategy: refetch products on any change
+            fetchProducts(activeCategory);
+        });
+
+    window.Echo.channel('activity')
+        .listen('.activity.logged', () => {
+            // No-op here; admin logs page would subscribe itself
+        });
+
+    window.Echo.channel('orders')
+        .listen('.order.status', () => {
+            // Cashier/admin pages can add specific reactions; for client we ignore
+        });
+}

@@ -4,15 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cashier Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100">
     <!-- Header -->
     <header class="header bg-blue-600 text-white">
         <div class="flex justify-between items-center">
-            <div class="logo text-2xl font-bold">Cashier Dashboard</div>
+            <div class="logo">Cashier Dashboard</div>
             <a href="{{ url('/') }}" class="text-sm hover:underline">Back to Menu</a>
         </div>
     </header>

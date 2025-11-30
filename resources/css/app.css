@@ -1,76 +1,83 @@
-/* App styles (Tailwind used for utilities). Import Poppins for consistent font. */
+/* 1. Import Font */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 2. Import Tailwind v4 */
+@import 'tailwindcss';
 
-/* Root variables */
-:root {
-  --font-sans: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* 3. Configure Sources (Tells Tailwind where to look for classes) */
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
+@source '../**/*.blade.php';
+
+/* 4. Configure Theme (Replaces tailwind.config.js theme.extend) */
+@theme {
+    --font-sans: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Base */
-html, body {
-  font-family: var(--font-sans);
-  color: #111827;
-  margin: 0;
-  background: #f3f4f6;
-  line-height: 1.4;
+/* 5. Custom Utilities using @apply */
+
+/* Base setup is handled automatically by v4, but we set the font and background here */
+body {
+    @apply font-sans text-gray-900 bg-gray-100 leading-snug m-0;
 }
 
 /* Header */
 .header {
-  background: #f8fafc;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
+    @apply bg-slate-50 px-8 py-4 border-b border-gray-200;
 }
-.logo { font-weight: 700; font-size: 1.25rem; color: #111827; }
+
+.logo {
+    @apply font-bold text-xl text-gray-900;
+}
 
 /* Search box */
-.search-box { width: 100%; padding: .6rem; border: 1px solid #d1d5db; border-radius: .5rem; margin-bottom: 1rem; }
+.search-box {
+    @apply w-full p-2.5 border border-gray-300 rounded-lg mb-4;
+}
 
 /* Product card */
 .product-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: .75rem;
-  padding: 1rem;
-  text-align: center;
-  height: 220px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+    @apply bg-white border border-gray-200 rounded-xl p-4 text-center h-[220px] flex flex-col justify-center items-center;
 }
-.product-card img { width: 100%; height: 120px; object-fit: cover; border-radius: .5rem; margin-bottom: .5rem; }
-.product-name { font-weight: 600; color: #111827; margin-bottom: .25rem; }
-.product-price { color: #6b7280; margin-bottom: .5rem; }
 
-/* Add to cart button */
-.add-btn { background: #4b5563; color: #fff; border: none; border-radius: 9999px; width: 32px; height: 32px; cursor: pointer; }
+/* Nesting works natively in v4 */
+.product-card img {
+    @apply w-full h-[120px] object-cover rounded-lg mb-2;
+}
 
-/* Cart item */
-.cart-item { background: #fff; border: 1px solid #e5e7eb; padding: .6rem; border-radius: .5rem; margin-bottom: .6rem; }
+.product-name {
+    @apply font-semibold text-gray-900 mb-1;
+}
+
+.product-price {
+    @apply text-gray-500 mb-2;
+}
+
+/* Buttons */
+.add-btn {
+    @apply bg-gray-600 text-white border-none rounded-full w-8 h-8 cursor-pointer flex items-center justify-center hover:bg-gray-700 transition-colors;
+}
+
+.qty-btn {
+    @apply bg-white border border-gray-300 px-1.5 rounded cursor-pointer;
+}
+
+.checkout-btn {
+    @apply bg-gray-900 text-white border-none p-2.5 rounded-lg w-full cursor-pointer hover:bg-gray-800 transition-colors;
+}
+
+/* Cart Items */
+.cart-item {
+    @apply bg-white border border-gray-200 p-2.5 rounded-lg mb-2.5;
+}
+
 .cart-item-delete {
-    border: 1px solid #d1d5db;
-    padding: 0.15rem 0.4rem;
-    border-radius: .25rem;
-    cursor: pointer;
-    color: #ef4444;
-    background: #fff;
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: all 0.2s;
+    @apply border border-gray-300 px-1.5 py-0.5 rounded cursor-pointer text-red-500 bg-white text-xs font-medium transition-all duration-200;
 }
+
+/* Hover state using CSS nesting */
 .cart-item-delete:hover {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #dc2626;
+    @apply bg-red-100 border-red-500 text-red-600;
 }
-
-/* Quantity buttons */
-.qty-btn { background: #fff; border: 1px solid #d1d5db; padding: 0 .4rem; border-radius: .25rem; cursor: pointer; }
-
-/* Checkout button */
-.checkout-btn { background: #111827; color: #fff; border: none; padding: .6rem; border-radius: .5rem; width: 100%; cursor: pointer; }

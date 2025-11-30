@@ -1,16 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProductController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/products', [App\Http\Controllers\ProductController::class, 'index'])->name('products.index');
-Route::get('/api/products', [App\Http\Controllers\ProductController::class, 'getProducts'])->name('products.get');
-Route::post('/api/cart/add', [App\Http\Controllers\ProductController::class, 'addToCart'])->name('cart.add');
-Route::post('/api/cart/remove', [App\Http\Controllers\ProductController::class, 'removeFromCart'])->name('cart.remove');
-Route::get('/api/cart', [App\Http\Controllers\ProductController::class, 'getCart'])->name('cart.get');
+Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+Route::get('/api/products', [ProductController::class, 'getProducts'])->name('products.get');
+Route::post('/api/cart/add', [ProductController::class, 'addToCart'])->name('cart.add');
+Route::post('/api/cart/remove', [ProductController::class, 'removeFromCart'])->name('cart.remove');
+Route::get('/api/cart', [ProductController::class, 'getCart'])->name('cart.get');
 
 // Order routes (customer)
 Route::post('/api/orders/submit', [App\Http\Controllers\OrderController::class, 'submit'])->name('orders.submit');
@@ -22,3 +23,13 @@ Route::get('/api/cashier/orders', [App\Http\Controllers\CashierController::class
 Route::post('/api/cashier/orders/{id}/approve', [App\Http\Controllers\CashierController::class, 'approveOrder'])->name('cashier.approve');
 Route::post('/api/cashier/orders/{id}/reject', [App\Http\Controllers\CashierController::class, 'rejectOrder'])->name('cashier.reject');
 Route::post('/api/cashier/orders/{id}/ready', [App\Http\Controllers\CashierController::class, 'markReady'])->name('cashier.ready');
+
+// Admin menu item editor
+Route::prefix('admin')->group(function () {
+    Route::get('/menu-items', [ProductController::class, 'adminIndex'])
+        ->name('admin.menu-items.index');
+    Route::get('/menu-items/{product}/edit', [ProductController::class, 'edit'])
+        ->name('admin.menu-items.edit');
+    Route::put('/menu-items/{product}', [ProductController::class, 'update'])
+        ->name('admin.menu-items.update');
+});

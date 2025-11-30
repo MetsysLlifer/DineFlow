@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -81,5 +82,58 @@ class ProductController extends Controller
     {
         $cart = session()->get('cart', []);
         return response()->json(['cart' => $cart], 200);
+    }
+
+    /**
+     * Admin list of menu items with optional search.
+     */
+    public function adminIndex(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $products = Product::query()
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where('name', 'like', "%$q%");
+            })
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.index', [
+            'products' => $products,
+            'q' => $q,
+        ]);
+    }
+
+    /**
+     * Show admin menu item editor.
+     */
+    public function edit(Product $product)
+    {
+        return view('admin.menu.edit', compact('product'));
+    }
+
+    /**
+     * Update a product (admin).
+     */
+    public function update(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'image' => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        // Handle optional image upload
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('products', 'public');
+            $validated['image'] = $path;
+        }
+
+        $product->update($validated);
+
+        return redirect()
+            ->route('admin.menu-items.edit', $product)
+            ->with('status', 'Product updated successfully');
     }
 }

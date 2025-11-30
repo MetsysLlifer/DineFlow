@@ -19,14 +19,22 @@
     <x-header />
 
     {{-- Main: products (left) and cart (right) --}}
-    <main class="flex h-screen bg-gray-50" role="main" aria-label="Main content">
+    <main class="flex flex-col md:flex-row md:h-screen bg-gray-50" role="main" aria-label="Main content">
         {{-- Products column --}}
-        <section class="flex-1 p-6 overflow-auto" aria-label="Products">
+        <section class="flex-1 p-6 overflow-auto pb-[22rem] md:pb-6" aria-label="Products">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-bold text-gray-800">Menu</h1>
             </div>
 
-            <div id="category-buttons" class="mb-4 flex flex-wrap gap-2"></div>
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <div id="category-buttons" class="hidden md:flex flex-wrap gap-2"></div>
+                <div class="md:hidden w-full">
+                    <label for="category-select" class="sr-only">Select category</label>
+                    <select id="category-select" class="w-full border rounded px-3 py-2">
+                        <option value="All">All</option>
+                    </select>
+                </div>
+            </div>
             <input
                 id="search-box"
                 class="search-box"
@@ -35,11 +43,13 @@
                 aria-label="Search products"
             >
 
-            <div id="product-list" class="grid grid-cols-4 gap-4" aria-live="polite"></div>
+            <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" aria-live="polite"></div>
+            {{-- Spacer to prevent overlap with floating cart on mobile --}}
+            <div class="md:hidden h-72"></div>
         </section>
 
-        {{-- Cart column --}}
-        <aside class="w-80 bg-white p-6 border-l border-gray-300 overflow-auto" aria-label="Order summary">
+        {{-- Cart column (fixed floating bar on small screens, static sidebar on desktop) --}}
+        <aside class="md:w-80 w-full bg-white p-4 md:p-6 md:border-l border-t md:border-t-0 border-gray-300 md:static fixed bottom-0 left-0 right-0 z-10 shadow-lg flex flex-col" aria-label="Order summary">
             <div class="mb-4">
                 <input
                     id="search-existing"
@@ -50,9 +60,9 @@
                 >
             </div>
 
-            <div id="cart-items" class="space-y-2 mb-4" aria-live="polite"></div>
+            <div id="cart-items" class="space-y-2 mb-4 overflow-y-auto pr-2" style="max-height: 30vh;" aria-live="polite"></div>
 
-            <div class="border-t border-gray-300 pt-4 space-y-2 text-sm">
+            <div class="border-t border-gray-300 pt-4 space-y-2 text-sm bg-white">
                 <div class="flex justify-between">
                     <span class="text-gray-600">Subtotal:</span>
                     <span id="subtotal" class="font-bold">₱ 00.00</span>
@@ -67,7 +77,7 @@
                 </div>
             </div>
 
-            <button class="checkout-btn mt-6" onclick="window.submitOrder()">PROCEED TO CHECKOUT</button>
+            <button class="checkout-btn mt-4 md:mt-6" onclick="window.submitOrder()">PROCEED TO CHECKOUT</button>
         </aside>
     </main>
 

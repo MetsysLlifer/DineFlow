@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Events\OrderStatusChanged;
 use Illuminate\Http\Request;
 use App\Services\ActivityLogger;
 

@@ -25,19 +25,21 @@ function displayProducts(products) {
 
     products.forEach(product => {
         const card = document.createElement('div');
-        card.className = 'product-card';
+        card.className = 'shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden bg-white';
 
         const imageUrl = product.image && product.image.startsWith('http')
             ? product.image
             : (product.image ? `/storage/${product.image}` : 'https://via.placeholder.com/200?text=No+Image');
 
-        card.innerHTML = `
-            <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="product-img">
-            <div class="product-name">${escapeHtml(product.name)}</div>
-            <div class="text-xs text-gray-500">${escapeHtml(product.category || '')}</div>
-            <div class="product-price">₱ ${parseFloat(product.price).toFixed(2)}</div>
-            <button class="add-btn" data-id="${product.id}" title="Add to cart">+</button>
-        `;
+                card.innerHTML = `
+                        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="w-full h-48 object-cover">
+                        <div class="p-3 space-y-1">
+                            <div class="product-name font-semibold">${escapeHtml(product.name)}</div>
+                            <div class="text-xs text-gray-500">${escapeHtml(product.category || '')}</div>
+                            <div class="product-price font-medium">₱ ${parseFloat(product.price).toFixed(2)}</div>
+                            <button class="add-btn mt-2 w-full px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" data-id="${product.id}" title="Add to cart">Add to Cart</button>
+                        </div>
+                `;
 
         productsContainer.appendChild(card);
     });
@@ -215,29 +217,56 @@ async function fetchProducts(category = null) {
 
 function renderCategoryButtons() {
     const categoryButtons = document.getElementById('category-buttons');
-    if (!categoryButtons) return;
+    const categorySelect = document.getElementById('category-select');
+    if (!categoryButtons && !categorySelect) return;
     const dynamic = Array.from(new Set(productsCache.map(p => p.category).filter(Boolean)));
     const unique = Array.from(new Set([ ...COMMON_CATEGORIES, ...dynamic ])).sort();
 
-    categoryButtons.innerHTML = '';
-    const allBtn = document.createElement('button');
-    allBtn.className = 'px-3 py-1 rounded border' + (activeCategory === 'All' ? ' bg-gray-800 text-white' : '');
-    allBtn.textContent = 'All';
-    allBtn.addEventListener('click', () => { activeCategory = 'All'; attachProductSearch(); displayProducts(productsCache); highlightActive(); });
-    categoryButtons.appendChild(allBtn);
+    if (categoryButtons) {
+        categoryButtons.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.className = 'px-3 py-1 rounded border' + (activeCategory === 'All' ? ' bg-indigo-600 text-white border-indigo-600' : ' hover:bg-indigo-50');
+        allBtn.textContent = 'All';
+        allBtn.addEventListener('click', () => { activeCategory = 'All'; attachProductSearch(); displayProducts(productsCache); highlightActive(); if (categorySelect) categorySelect.value = 'All'; });
+        categoryButtons.appendChild(allBtn);
+    }
 
     unique.forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = 'px-3 py-1 rounded border' + (activeCategory === cat ? ' bg-gray-800 text-white' : '');
-        btn.textContent = cat;
-        btn.addEventListener('click', () => {
-            activeCategory = cat;
-            const filtered = productsCache.filter(p => (p.category || '').toLowerCase() === cat.toLowerCase());
-            displayProducts(filtered);
-            highlightActive();
-        });
-        categoryButtons.appendChild(btn);
+        if (categoryButtons) {
+            const btn = document.createElement('button');
+            btn.className = 'px-3 py-1 rounded border' + (activeCategory === cat ? ' bg-indigo-600 text-white border-indigo-600' : ' hover:bg-indigo-50');
+            btn.textContent = cat;
+            btn.addEventListener('click', () => {
+                activeCategory = cat;
+                const filtered = productsCache.filter(p => (p.category || '').toLowerCase() === cat.toLowerCase());
+                displayProducts(filtered);
+                highlightActive();
+                if (categorySelect) categorySelect.value = cat;
+            });
+            categoryButtons.appendChild(btn);
+        }
     });
+
+    // Populate mobile dropdown
+    if (categorySelect) {
+        categorySelect.innerHTML = '';
+        const opts = ['All', ...unique];
+        opts.forEach(val => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            if (val === activeCategory) opt.selected = true;
+            categorySelect.appendChild(opt);
+        });
+        categorySelect.onchange = () => {
+            activeCategory = categorySelect.value;
+            const list = activeCategory === 'All'
+                ? productsCache
+                : productsCache.filter(p => (p.category || '').toLowerCase() === activeCategory.toLowerCase());
+            displayProducts(list);
+            highlightActive();
+        };
+    }
 }
 
 function highlightActive() {
@@ -245,7 +274,7 @@ function highlightActive() {
     if (!categoryButtons) return;
     [...categoryButtons.querySelectorAll('button')].forEach(btn => {
         const isActive = btn.textContent === activeCategory || (activeCategory === 'All' && btn.textContent === 'All');
-        btn.className = 'px-3 py-1 rounded border' + (isActive ? ' bg-gray-800 text-white' : '');
+        btn.className = 'px-3 py-1 rounded border' + (isActive ? ' bg-indigo-600 text-white border-indigo-600' : ' hover:bg-indigo-50');
     });
 }
 

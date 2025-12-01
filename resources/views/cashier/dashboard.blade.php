@@ -17,15 +17,27 @@
 
     <!-- Main content -->
     <main class="p-6">
-        <h1 class="text-3xl font-bold mb-6 text-gray-800">Pending Orders</h1>
-
-        <div id="orders-container" class="grid grid-cols-1 gap-4">
-            <p class="text-gray-600">Loading orders...</p>
+        <div class="flex items-center justify-between mb-4 gap-3">
+            <h1 class="text-3xl font-bold text-gray-800">Orders</h1>
+            <div class="flex items-center gap-2">
+                <input id="approve-code-input" type="text" maxlength="6" placeholder="Enter code" class="w-36 px-3 py-2 border rounded" />
+                <button id="approve-code-btn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Accept</button>
+            </div>
         </div>
+
+        <div class="flex border-b mb-4">
+            <button id="tab-pending" class="px-4 py-2 border-b-2 border-indigo-600 text-indigo-700 font-semibold">Pending Queue</button>
+            <button id="tab-unapproved" class="px-4 py-2 text-gray-600">Unapproved (codes)</button>
+        </div>
+
+        <div id="pending-pane" class="grid grid-cols-1 gap-4" aria-live="polite"></div>
+        <div id="unapproved-pane" class="hidden grid grid-cols-1 gap-2" aria-live="polite"></div>
     </main>
 
     <script>
-        const apiBaseUrl = '{{ route("cashier.orders") }}';
+        const apiPending = '{{ route("cashier.orders") }}';
+        const apiUnapproved = '{{ route("cashier.orders.unapproved") }}';
+        const apiApproveCode = '{{ route("cashier.approve.code") }}';
         const approveUrl = '{{ route("cashier.approve", ":id") }}';
         const rejectUrl = '{{ route("cashier.reject", ":id") }}';
         const readyUrl = '{{ route("cashier.ready", ":id") }}';
@@ -33,17 +45,19 @@
 
         async function loadOrders() {
             try {
-                const res = await fetch(apiBaseUrl);
-                const data = await res.json();
-                displayOrders(data.orders || []);
+                const [resP, resU] = await Promise.all([fetch(apiPending), fetch(apiUnapproved)]);
+                const dataP = await resP.json();
+                const dataU = await resU.json();
+                displayPending(dataP.orders || []);
+                displayUnapproved(dataU.orders || []);
             } catch (err) {
                 console.error('Error loading orders:', err);
-                document.getElementById('orders-container').innerHTML = "<p class='text-red-600'>Error loading orders.</p>";
+                document.getElementById('pending-pane').innerHTML = "<p class='text-red-600'>Error loading orders.</p>";
             }
         }
 
-        function displayOrders(orders) {
-            const container = document.getElementById('orders-container');
+        function displayPending(orders) {
+            const container = document.getElementById('pending-pane');
             container.innerHTML = '';
 
             if (orders.length === 0) {
@@ -86,8 +100,7 @@
                     </div>
 
                     <div class="flex gap-2">
-                        <button class="approve-btn flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700" data-id="${order.id}">Approve</button>
-                        <button class="ready-btn flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700" data-id="${order.id}">Ready</button>
+                        <button class="ready-btn flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700" data-id="${order.id}">Serve</button>
                         <button class="reject-btn flex-1 bg-red-600 text-white py-2 rounded hover:bg-red-700" data-id="${order.id}">Reject</button>
                     </div>
                 `;
@@ -95,9 +108,6 @@
             });
 
             // Wire buttons
-            document.querySelectorAll('.approve-btn').forEach(btn =>
-                btn.addEventListener('click', () => approveOrder(btn.dataset.id))
-            );
             document.querySelectorAll('.ready-btn').forEach(btn =>
                 btn.addEventListener('click', () => markReady(btn.dataset.id))
             );
@@ -106,19 +116,46 @@
             );
         }
 
-        async function approveOrder(orderId) {
+        function displayUnapproved(orders) {
+            const container = document.getElementById('unapproved-pane');
+            container.innerHTML = '';
+            if (orders.length === 0) {
+                container.innerHTML = "<p class='text-gray-600'>No unapproved orders.</p>";
+                return;
+            }
+            orders.forEach(o => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded border flex items-center justify-between';
+                card.innerHTML = `
+                    <div>
+                        <div class="font-semibold">${o.order_number}</div>
+                        <div class="text-sm text-gray-600">Code: <span class="font-mono">${o.code}</span></div>
+                    </div>
+                    <div class="text-xs text-gray-500">${new Date(o.created_at).toLocaleString()}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function approveCode() {
+            const code = (document.getElementById('approve-code-input').value || '').trim();
+            if (code.length !== 6) { alert('Enter 6-digit code'); return; }
             try {
-                const res = await fetch(approveUrl.replace(':id', orderId), {
+                const res = await fetch(apiApproveCode, {
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrfToken }
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                    body: JSON.stringify({ code })
                 });
                 const data = await res.json();
                 if (data.success) {
+                    document.getElementById('approve-code-input').value = '';
                     loadOrders();
+                } else {
+                    alert(data.message || 'Code not found');
                 }
             } catch (err) {
-                console.error('Error approving order:', err);
-                alert('Error approving order');
+                console.error('Error approving by code:', err);
+                alert('Error approving by code');
             }
         }
 
@@ -159,10 +196,29 @@
             }
         }
 
-        // Load orders on page load and refresh every 5 seconds
+        // Tabs and events
         document.addEventListener('DOMContentLoaded', () => {
             loadOrders();
-            setInterval(loadOrders, 5000);
+            document.getElementById('approve-code-btn').addEventListener('click', approveCode);
+            document.getElementById('tab-pending').addEventListener('click', () => {
+                document.getElementById('pending-pane').classList.remove('hidden');
+                document.getElementById('unapproved-pane').classList.add('hidden');
+                document.getElementById('tab-pending').classList.add('border-indigo-600','text-indigo-700','font-semibold');
+                document.getElementById('tab-unapproved').classList.remove('border-indigo-600','text-indigo-700','font-semibold');
+            });
+            document.getElementById('tab-unapproved').addEventListener('click', () => {
+                document.getElementById('pending-pane').classList.add('hidden');
+                document.getElementById('unapproved-pane').classList.remove('hidden');
+                document.getElementById('tab-unapproved').classList.add('border-indigo-600','text-indigo-700','font-semibold');
+                document.getElementById('tab-pending').classList.remove('border-indigo-600','text-indigo-700','font-semibold');
+            });
+
+            // Real-time refresh via Echo
+            if (window.Echo) {
+                window.Echo.channel('orders').listen('.order.status', () => loadOrders());
+            } else {
+                setInterval(loadOrders, 5000);
+            }
         });
     </script>
 </body>

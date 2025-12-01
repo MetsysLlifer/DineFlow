@@ -44,6 +44,8 @@ Route::get('/api/orders/{orderNumber}/status', [App\Http\Controllers\OrderContro
 Route::middleware(['role:admin,manager,cashier,kitchen'])->group(function () {
     Route::get('/cashier', [App\Http\Controllers\CashierController::class, 'dashboard'])->name('cashier.dashboard');
     Route::get('/api/cashier/orders', [App\Http\Controllers\CashierController::class, 'getPendingOrders'])->name('cashier.orders');
+    Route::get('/api/cashier/orders-unapproved', [App\Http\Controllers\CashierController::class, 'getUnapprovedOrders'])->name('cashier.orders.unapproved');
+    Route::post('/api/cashier/approve-by-code', [App\Http\Controllers\CashierController::class, 'approveByCode'])->name('cashier.approve.code');
     Route::post('/api/cashier/orders/{id}/approve', [App\Http\Controllers\CashierController::class, 'approveOrder'])->name('cashier.approve');
     Route::post('/api/cashier/orders/{id}/reject', [App\Http\Controllers\CashierController::class, 'rejectOrder'])->name('cashier.reject');
     Route::post('/api/cashier/orders/{id}/ready', [App\Http\Controllers\CashierController::class, 'markReady'])->name('cashier.ready');

@@ -301,3 +301,139 @@ if (window.Echo) {
             // Cashier/admin pages can add specific reactions; for client we ignore
         });
 }
+
+// Helpers for customer order status pill + polling
+let orderPollTimer = null;
+function ensureOrderPill() {
+    let pill = document.getElementById('customer-order-pill');
+    if (!pill) {
+        const header = document.querySelector('header.header .flex.items-center.gap-4')
+            || document.querySelector('header.header .flex.justify-between .flex');
+        if (header) {
+            pill = document.createElement('div');
+            pill.id = 'customer-order-pill';
+            pill.className = 'flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm';
+            pill.innerHTML = '<span id="customer-order-code"></span> <span id="customer-order-status" class="text-xs px-2 py-0.5 rounded bg-indigo-100">UNAPPROVED</span>';
+            header.prepend(pill);
+        }
+    }
+    return pill;
+}
+function setOrderPill(code, statusLabel) {
+    const pill = ensureOrderPill();
+    if (!pill) return;
+    pill.style.display = 'flex';
+    const codeEl = document.getElementById('customer-order-code');
+    const statusEl = document.getElementById('customer-order-status');
+    if (codeEl) codeEl.textContent = code || '';
+    if (statusEl) statusEl.textContent = statusLabel || '';
+}
+
+// Order submission (client)
+async function submitOrder() {
+    if (!window.App || !window.App.routes || !window.App.routes.submitOrder) return;
+    if (!cart || Object.keys(cart).length === 0) {
+        alert('Cart is empty. Add items before checkout.');
+        return;
+    }
+    const items = Object.keys(cart).map(id => {
+        const item = cart[id];
+        return { product_id: id, name: item.name, price: item.price, quantity: item.quantity };
+    });
+    let total = 0;
+    items.forEach(i => { total += i.price * i.quantity; });
+
+    try {
+        const res = await fetch(window.App.routes.submitOrder, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.App.csrfToken },
+            body: JSON.stringify({ items, total })
+        });
+        const data = await res.json();
+        if (data.success) {
+            // Persist and show pill
+            localStorage.setItem('df_last_order', JSON.stringify({ number: data.order_number, code: data.code }));
+            setOrderPill(data.code, 'UNAPPROVED');
+
+            alert(`Order submitted! Your code: ${data.code}`);
+            cart = {};
+            updateCartUI();
+
+            // Start resilient tracking
+            startOrderTracking(data.order_number);
+        } else {
+            alert('Error submitting order');
+        }
+    } catch (e) {
+        console.error('Error submitting order:', e);
+        alert('Error submitting order');
+    }
+}
+
+window.submitOrder = submitOrder;
+
+async function watchOrderStatus(orderNumber) {
+    try {
+        const url = `/api/orders/${encodeURIComponent(orderNumber)}/status`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data.success) return null;
+        const status = (data.order.status || '').toLowerCase();
+        const saved = JSON.parse(localStorage.getItem('df_last_order') || '{}');
+
+        if (status === 'pending') {
+            setOrderPill(saved.code || '', 'APPROVED');
+        } else if (status === 'ready' || status === 'served' || status === 'rejected') {
+            const pill = document.getElementById('customer-order-pill');
+            if (pill) pill.style.display = 'none';
+            localStorage.removeItem('df_last_order');
+        }
+        return status;
+    } catch (_) {
+        return null;
+    }
+}
+
+// Subscribe to order status changes to update customer pill
+if (window.Echo) {
+    window.Echo.channel('orders')
+        .listen('.order.status', (e) => {
+            const saved = JSON.parse(localStorage.getItem('df_last_order') || '{}');
+            if (e && e.order && saved && saved.number && e.order.order_number === saved.number) {
+                watchOrderStatus(saved.number);
+            }
+        });
+}
+
+function startOrderTracking(orderNumber) {
+    if (orderPollTimer) {
+        clearInterval(orderPollTimer);
+        orderPollTimer = null;
+    }
+    // Immediate check
+    watchOrderStatus(orderNumber);
+    // Poll every 4s as fallback to broadcasts
+    orderPollTimer = setInterval(async () => {
+        const status = await watchOrderStatus(orderNumber);
+        if (status === 'ready' || status === 'served' || status === 'rejected') {
+            clearInterval(orderPollTimer);
+            orderPollTimer = null;
+        }
+    }, 4000);
+}
+
+// Restore tracking on page load (SSR/session or localStorage cases)
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = JSON.parse(localStorage.getItem('df_last_order') || '{}');
+    if (saved && saved.number && saved.code) {
+        setOrderPill(saved.code, 'UNAPPROVED');
+        startOrderTracking(saved.number);
+        return;
+    }
+    if (window.CustomerOrder && window.CustomerOrder.order_number && window.CustomerOrder.code) {
+        localStorage.setItem('df_last_order', JSON.stringify({ number: window.CustomerOrder.order_number, code: window.CustomerOrder.code }));
+        setOrderPill(window.CustomerOrder.code, 'UNAPPROVED');
+        startOrderTracking(window.CustomerOrder.order_number);
+    }
+});

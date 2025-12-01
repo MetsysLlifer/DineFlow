@@ -32,6 +32,34 @@ class CashierController extends Controller
     }
 
     /**
+     * Get all unapproved orders as JSON.
+     */
+    public function getUnapprovedOrders()
+    {
+        $orders = Order::where('status', 'unapproved')
+            ->orderBy('created_at', 'desc')
+            ->get(['id','order_number','code','status','created_at']);
+        return response()->json(['orders' => $orders], 200);
+    }
+
+    /**
+     * Approve an unapproved order by code -> moves to pending (queue).
+     */
+    public function approveByCode(Request $request)
+    {
+        $data = $request->validate(['code' => ['required','string','size:6']]);
+        $order = Order::where('code', $data['code'])->where('status', 'unapproved')->first();
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Code not found or already processed'], 404);
+        }
+        $order->status = 'pending';
+        $order->save();
+        event(new OrderStatusChanged($order));
+        ActivityLogger::log('order.accept', Order::class, $order->id, ['from' => 'unapproved', 'to' => 'pending']);
+        return response()->json(['success' => true, 'order' => $order], 200);
+    }
+
+    /**
      * Approve an order.
      */
     public function approveOrder($orderId)

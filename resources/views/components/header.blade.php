@@ -22,6 +22,18 @@
         </a>
         
         <div class="flex items-center gap-4">
+            {{-- Customer order code (if any in session) --}}
+            @php($orderCode = session('last_order_code'))
+            @php($orderNumber = session('last_order_number'))
+            @if(!$user && $orderCode)
+                <div id="customer-order-pill" class="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm">
+                    <span id="customer-order-code">{{ $orderCode }}</span>
+                    <span id="customer-order-status" class="text-xs px-2 py-0.5 rounded bg-indigo-100">UNAPPROVED</span>
+                </div>
+                <script>
+                    window.CustomerOrder = { code: '{{ $orderCode }}', number: '{{ $orderNumber }}' };
+                </script>
+            @endif
             @auth
                 <div class="flex items-center gap-3 text-sm">
                     <span class="text-gray-600">{{ $user->name }}</span>

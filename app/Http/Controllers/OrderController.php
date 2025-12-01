@@ -26,13 +26,19 @@ class OrderController extends Controller
         // Generate unique order number
         $orderNumber = 'ORD-' . date('YmdHis') . '-' . rand(1000, 9999);
 
-        // Create the order
+        // Generate a short unique pickup code (6 digits)
+        do {
+            $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        } while (Order::where('code', $code)->exists());
+
+        // Create the order initially as "unapproved"
         $order = Order::create([
             'order_number' => $orderNumber,
+            'code' => $code,
             'subtotal' => $total,
             'discount' => 0,
             'total' => $total,
-            'status' => 'pending'
+            'status' => 'unapproved'
         ]);
 
         // Add items to order
@@ -50,16 +56,20 @@ class OrderController extends Controller
         // Clear session cart
         session()->forget('cart');
 
-        ActivityLogger::log('order.submit', Order::class, $order->id, [
-            'order_number' => $orderNumber,
-            'total' => $total,
-            'items_count' => count($items),
-        ]);
+        // Do NOT log to admin activity while unapproved
+        // But broadcast so staff dashboards update in real-time
+        event(new \App\Events\OrderStatusChanged($order));
+
+        // Save the code in session for header display
+        session()->put('last_order_code', $code);
+        session()->put('last_order_number', $orderNumber);
 
         return response()->json([
             'success' => true,
             'order_number' => $orderNumber,
-            'order_id' => $order->id
+            'order_id' => $order->id,
+            'code' => $code,
+            'status' => 'unapproved'
         ], 201);
     }
 

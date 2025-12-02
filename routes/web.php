@@ -34,6 +34,7 @@ Route::prefix('admin')->group(function () {
 Route::get('/api/products', [ProductController::class, 'getProducts'])->name('products.get');
 Route::post('/api/cart/add', [ProductController::class, 'addToCart'])->name('cart.add');
 Route::post('/api/cart/remove', [ProductController::class, 'removeFromCart'])->name('cart.remove');
+Route::post('/api/cart/update', [ProductController::class, 'updateCart'])->name('cart.update');
 Route::get('/api/cart', [ProductController::class, 'getCart'])->name('cart.get');
 
 // Order routes (customer)

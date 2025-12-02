@@ -3,9 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
 
     {{-- Page title (can be overridden by child views) --}}
     <title>@yield('title', 'DineFlow')</title>
+
+    {{-- Runtime config for app.js (must load before Vite) --}}
+    <script>
+        window.App = window.App || {};
+        @if(Route::has('products.get'))
+        window.App.routes = {
+            productsGet: '{{ route("products.get") }}',
+            cartGet: '{{ route("cart.get") }}',
+            cartAdd: '{{ route("cart.add") }}',
+            cartRemove: '{{ route("cart.remove") }}',
+            cartUpdate: '{{ route("cart.update") }}',
+            submitOrder: '{{ route("orders.submit") }}'
+        };
+        window.App.csrfToken = '{{ csrf_token() }}';
+        @endif
+    </script>
 
     {{-- Centralized styles via Vite (Tailwind v4 + app styles) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])

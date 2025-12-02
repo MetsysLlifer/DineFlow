@@ -88,6 +88,36 @@ class ProductController extends Controller
     }
 
     /**
+     * Update cart item quantity.
+     * Expects JSON payload: { product_id: <int>, action: 'plus'|'minus' }
+     */
+    public function updateCart(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|integer',
+            'action' => 'required|in:plus,minus'
+        ]);
+
+        $productId = (int) $request->input('product_id');
+        $action = $request->input('action');
+        $cart = session()->get('cart', []);
+
+        if (isset($cart[$productId])) {
+            if ($action === 'plus') {
+                $cart[$productId]['quantity'] += 1;
+            } elseif ($action === 'minus') {
+                $cart[$productId]['quantity'] -= 1;
+                if ($cart[$productId]['quantity'] <= 0) {
+                    unset($cart[$productId]);
+                }
+            }
+            session()->put('cart', $cart);
+        }
+
+        return response()->json(['success' => true, 'cart' => $cart], 200);
+    }
+
+    /**
      * Return current session cart as JSON.
      */
     public function getCart()
